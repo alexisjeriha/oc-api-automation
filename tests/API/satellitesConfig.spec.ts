@@ -85,7 +85,17 @@ test.beforeEach(async ({ request }) => {
 });
 
 test.describe("GET /configs", () => {
+  // Start each test with many Satellite Configs
+  test.beforeEach(async ({ request }) => {
+    const payloadSatelliteConfig = [
+      { name: "Dummy Valid Satellite 1", type: "OPTICAL", cospar_id: "2023-001AB" },
+      { name: "Dummy Valid Satellite 2", type: "SAR", cospar_id: "2024-002BC" },
+    ]
+    await createMultipleSatelliteConfigurations(request, payloadSatelliteConfig);
+  })
+
   test("Get All Satellite Configurations", async ({ request }) => {
+
     const { response, body, data } = await getAllExistingSatelliteConfigurations(request);
 
     // Validate Status Code
@@ -154,7 +164,7 @@ test.describe("GET /configs/:missionID", () => {
 
   test("Get Satellite Configuration by Non-Existing Mission ID", async ({ request }) => {
     const invalidSatelliteConfigId = 2
-    const messageNonExistingResource = `'resource '${invalidSatelliteConfigId}' of type 'Mission'' does not exist`
+    const nonExistingResourceMessage = `'resource '${invalidSatelliteConfigId}' of type 'Mission'' does not exist`
     const response = await request.get(
       `http://${localEnvURL}/${satelliteConfigurationsEndpoint}/${invalidSatelliteConfigId}`
     );
@@ -165,7 +175,7 @@ test.describe("GET /configs/:missionID", () => {
     expect(body.meta).toBeNull()
     expect(body.data).toBeNull()
     if (body.errors) {
-      expect(body.errors[0].message).toEqual(messageNonExistingResource)
+      expect(body.errors[0].message).toEqual(nonExistingResourceMessage)
     }
   });
 
@@ -174,11 +184,7 @@ test.describe("GET /configs/:missionID", () => {
 test.describe("PUT /configs/:missionID", () => {
   test.beforeEach(async ({ request }) => {
 
-    const payloadSatelliteConfig = {
-      name: "Dummy Valid Satellite",
-      type: "OPTICAL",
-      cospar_id: "2023-001AB",
-    }
+    const payloadSatelliteConfig = { name: "Dummy Valid Satellite", type: "OPTICAL", cospar_id: "2023-001AB" }
 
     await createSingleSatelliteConfiguration(
       request,
@@ -190,7 +196,7 @@ test.describe("PUT /configs/:missionID", () => {
     const existingSatelliteConfigId = 1
     const payloadSatelliteConfig = { name: "Dummy Valid Satellite Updated", type: "SAR", cospar_id: "2024-002BC" };
     const expectedSatelliteConfigsData = [{ id: 1, name: "Dummy Valid Satellite Updated", type: "SAR", cospar_id: "2024-002BC" }];
-
+    const successfullConfigUpdateMessage = "Mission config updated successfully"
     const { response, body } = await updateSingleSatelliteConfig(request, payloadSatelliteConfig, existingSatelliteConfigId)
 
     // TODO: VALIDATE REQUIREMENT
@@ -198,7 +204,7 @@ test.describe("PUT /configs/:missionID", () => {
 
     expect(body.errors).toBeNull()
     expect(body.meta).toBeNull()
-    expect(body.data?.message).toEqual("Mission config updated successfully")
+    expect(body.data?.message).toEqual(successfullConfigUpdateMessage)
 
     const { data: actualSatelliteConfigData } = await getAllExistingSatelliteConfigurations(request);
 
@@ -208,6 +214,7 @@ test.describe("PUT /configs/:missionID", () => {
 
   test("Update Non-Existing Satellite Configuration", async ({ request }) => {
     const nonExistingSatelliteConfigId = 2
+    const nonExistingResourceMessage = `'resource '${nonExistingSatelliteConfigId}' of type 'Mission'' does not exist`
     const payloadSatelliteConfig = { name: "Dummy Valid Satellite Updated", type: "SAR", cospar_id: "2024-002BC" };
 
     const { response, body } = await updateSingleSatelliteConfig(request, payloadSatelliteConfig, nonExistingSatelliteConfigId)
@@ -215,13 +222,15 @@ test.describe("PUT /configs/:missionID", () => {
     expect(response.status()).toBe(404)
     expect(body.data).toBeNull()
     expect(body.meta).toBeNull()
-    expect(body.errors?.[0].message).toEqual(`'resource '${nonExistingSatelliteConfigId}' of type 'Mission'' does not exist`)
+    expect(body.errors?.[0].message).toEqual(nonExistingResourceMessage)
 
   });
 
   test.skip("Update Satellite Configuration without All Required Fields", async ({ request }) => { });
 
   test.skip("Update Satellite Configuration with Invalid Data", async ({ request }) => { });
+
+  test.skip("Update Satellite Configuration with Invalid Field Name", async ({ request }) => { });
 });
 
 test.describe("POST /configs", () => {
@@ -265,52 +274,53 @@ test.describe("POST /configs", () => {
       const payloadSatelliteConfigWithoutType = { name: "Test Satellites 322", cospar_id: "2023-001AB" }
       const payloadSatelliteConfigWithoutCosparId = { name: "Test Satellites 322", type: "OPTICAL" }
 
-      const nameRequiredMessage = "invalid request due to name is required"
-      const typeRequiredMessage = "invalid request due to payload type is required"
-      const cosparIDRequiredMessage = "invalid request due to cospar ID is required"
+      const requiredNameMessage = "invalid request due to name is required"
+      const requiredTypeMessage = "invalid request due to payload type is required"
+      const requiredCosparIdMessage = "invalid request due to cospar ID is required"
 
       const { response: responseWithoutName, body: bodyWithoutName } = await createSingleSatelliteConfiguration(request, payloadSatelliteConfigWithoutName)
 
       expect(responseWithoutName.status()).toBe(400)
       expect(bodyWithoutName.data).toBeNull()
       expect(bodyWithoutName.meta).toBeNull()
-      expect(bodyWithoutName.errors![0].message).toEqual(nameRequiredMessage)
+      expect(bodyWithoutName.errors![0].message).toEqual(requiredNameMessage)
 
       const { response: responseWithoutType, body: bodyWithoutType } = await createSingleSatelliteConfiguration(request, payloadSatelliteConfigWithoutType)
 
       expect(responseWithoutType.status()).toBe(400)
       expect(bodyWithoutType.data).toBeNull()
       expect(bodyWithoutType.meta).toBeNull()
-      expect(bodyWithoutType.errors![0].message).toEqual(typeRequiredMessage)
+      expect(bodyWithoutType.errors![0].message).toEqual(requiredTypeMessage)
 
       const { response: responseWithoutCosparId, body: bodyWithoutCosparId } = await createSingleSatelliteConfiguration(request, payloadSatelliteConfigWithoutCosparId)
 
       expect(responseWithoutCosparId.status()).toBe(400)
       expect(bodyWithoutCosparId.data).toBeNull()
       expect(bodyWithoutCosparId.meta).toBeNull()
-      expect(bodyWithoutCosparId.errors![0].message).toEqual(cosparIDRequiredMessage)
+      expect(bodyWithoutCosparId.errors![0].message).toEqual(requiredCosparIdMessage)
     }),
 
     test("Create Satellite Configuration with Invalid Data", async ({ request }) => {
       const payloadSatelliteConfigWithInvalidType = { name: "New Satellite Mission", type: "INVALID TYPE", cospar_id: "2000-999AB" }
+
+      const invalidTypeMessage = "invalid request due to invalid payload type"
+      const invalidCosparIdMessage = "invalid request due to invalid COSPAR ID"
 
       const { response: responseWithInvalidType, body: bodyWithInvalidType } = await createSingleSatelliteConfiguration(request, payloadSatelliteConfigWithInvalidType)
 
       expect(responseWithInvalidType.status()).toBe(400)
       expect(bodyWithInvalidType.data).toBeNull()
       expect(bodyWithInvalidType.meta).toBeNull()
-      expect(bodyWithInvalidType.errors![0].message).toEqual("invalid request due to invalid payload type")
+      expect(bodyWithInvalidType.errors![0].message).toEqual(invalidTypeMessage)
 
       const payloadSatelliteConfigWithInvalidCosparId = { name: "New Satellite Mission", type: "OPTICAL", cospar_id: "2000-999ABC" }
-
       const { response: responseWithInvalidCosparId, body: bodyWithInvalidCosparId } = await createSingleSatelliteConfiguration(request, payloadSatelliteConfigWithInvalidCosparId)
 
       expect(responseWithInvalidCosparId.status()).toBe(400)
       expect(bodyWithInvalidCosparId.data).toBeNull()
       expect(bodyWithInvalidCosparId.meta).toBeNull()
-      expect(bodyWithInvalidCosparId.errors![0].message).toEqual("invalid request due to invalid COSPAR ID")
+      expect(bodyWithInvalidCosparId.errors![0].message).toEqual(invalidCosparIdMessage)
     })
-
 }),
 
   test.describe("DELETE /configs/:missionID", () => {
@@ -336,15 +346,17 @@ test.describe("POST /configs", () => {
 
     test("Delete Non-Existing Satellite Configuration", async ({ request }) => {
       const nonExistingSatelliteConfigId = 2
+      const nonExistingResourceMessage = `'resource '${nonExistingSatelliteConfigId}' of type 'Mission'' does not exist`
       const response = await request.delete(`http://${localEnvURL}/${satelliteConfigurationsEndpoint}/${nonExistingSatelliteConfigId}`);
       const body: ConfigResponse = await response.json();
 
       expect(response.status()).toBe(404)
       expect(body.meta).toBeNull()
       expect(body.data).toBeNull()
-      expect(body.errors?.[0].message).toEqual(`'resource '${nonExistingSatelliteConfigId}' of type 'Mission'' does not exist`);
+      expect(body.errors?.[0].message).toEqual(nonExistingResourceMessage);
     });
-    test("Delete Satellite Configuration with Invalid Id Type", async ({ request }) => { })
+
+    test.skip("Delete Satellite Configuration with Invalid Id Type", async ({ request }) => { })
   });
 
 test.describe("Other Edge Cases", () => {
@@ -391,4 +403,6 @@ test.describe("Other Edge Cases", () => {
   });
 
   test.skip("Empty Body", async ({ request }) => { });
+
+  test.skip("Other JSON Malformations", async ({ request }) => { });
 });
